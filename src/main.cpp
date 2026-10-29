@@ -3,8 +3,6 @@
 
 using namespace geode::prelude;
 
-// If undo removes blocks one at a time after a fill,
-// flip this to the opposite value.
 static constexpr bool CREATE_FLAG = true;
 
 class $modify(FillUI, EditorUI) {
@@ -41,6 +39,11 @@ class $modify(FillUI, EditorUI) {
             return;
         }
 
+        bool hollow = Mod::get()->getSettingValue<bool>("hollow");
+        bool checker = Mod::get()->getSettingValue<bool>("checkerboard");
+        float step = static_cast<float>(Mod::get()->getSettingValue<double>("step"));
+        if (step < 1.f) step = 30.f;
+
         int id = a->m_objectID;
         auto pa = a->getPosition();
         auto pb = b->getPosition();
@@ -50,18 +53,27 @@ class $modify(FillUI, EditorUI) {
         float minY = std::min(pa.y, pb.y);
         float maxY = std::max(pa.y, pb.y);
 
-        int cols = static_cast<int>((maxX - minX) / 30.f + 0.5f) + 1;
-        int rows = static_cast<int>((maxY - minY) / 30.f + 0.5f) + 1;
+        int cols = static_cast<int>((maxX - minX) / step + 0.5f) + 1;
+        int rows = static_cast<int>((maxY - minY) / step + 0.5f) + 1;
         if (cols * rows > 5000) {
             Notification::create("Area too big (max 5000 blocks)", NotificationIcon::Error)->show();
             return;
         }
 
+        auto isCorner = [&](CCPoint p) {
+            return (std::abs(p.x - pa.x) < 0.5f && std::abs(p.y - pa.y) < 0.5f)
+                || (std::abs(p.x - pb.x) < 0.5f && std::abs(p.y - pb.y) < 0.5f);
+        };
+
         auto placedObjs = CCArray::create();
         for (int i = 0; i < cols; i++) {
             for (int j = 0; j < rows; j++) {
-                CCPoint pos = { minX + i * 30.f, minY + j * 30.f };
-                if (pos.equals(pa) || pos.equals(pb)) continue;
+                if (hollow && !(i == 0 || j == 0 || i == cols - 1 || j == rows - 1)) continue;
+                if (checker && ((i + j) % 2 != 0)) continue;
+
+                CCPoint pos = { minX + i * step, minY + j * step };
+                if (isCorner(pos)) continue;
+
                 auto obj = m_editorLayer->createObject(id, pos, CREATE_FLAG);
                 if (obj) {
                     obj->setRotation(a->getRotation());
