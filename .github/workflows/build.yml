@@ -1,0 +1,18 @@
+name: Build
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: geode-sdk/build-geode-mod@main
+        id: build
+        with:
+          target: Android64
+          sdk: 5.10.1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fill-this
+          path: ${{ steps.build.outputs.build-output }}
