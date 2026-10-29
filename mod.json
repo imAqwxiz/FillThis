@@ -13,5 +13,27 @@
 	"description": "Lightweight simple mod to fill in structures.",
 	"dependencies": {
 		"geode.node-ids": ">=v1.23.3"
+	},
+	"settings": {
+		"hollow": {
+			"type": "bool",
+			"name": "Hollow fill",
+			"description": "Only fill the outline of the area.",
+			"default": false
+		},
+		"checkerboard": {
+			"type": "bool",
+			"name": "Checkerboard",
+			"description": "Place a block on every other spot.",
+			"default": false
+		},
+		"step": {
+			"type": "float",
+			"name": "Block step",
+			"description": "Distance between blocks. 30 = one normal block.",
+			"default": 30,
+			"min": 1,
+			"max": 300
+		}
 	}
 }
