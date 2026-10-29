@@ -3,6 +3,10 @@
 
 using namespace geode::prelude;
 
+// If undo removes blocks one at a time after a fill,
+// flip this to the opposite value.
+static constexpr bool CREATE_FLAG = true;
+
 class $modify(FillUI, EditorUI) {
     void createMoveMenu() {
         EditorUI::createMoveMenu();
@@ -53,19 +57,27 @@ class $modify(FillUI, EditorUI) {
             return;
         }
 
-        int placed = 0;
+        auto placedObjs = CCArray::create();
         for (int i = 0; i < cols; i++) {
             for (int j = 0; j < rows; j++) {
                 CCPoint pos = { minX + i * 30.f, minY + j * 30.f };
                 if (pos.equals(pa) || pos.equals(pb)) continue;
-                auto obj = m_editorLayer->createObject(id, pos, false);
+                auto obj = m_editorLayer->createObject(id, pos, CREATE_FLAG);
                 if (obj) {
                     obj->setRotation(a->getRotation());
-                    placed++;
+                    placedObjs->addObject(obj);
                 }
             }
         }
 
-        Notification::create(fmt::format("Filled {} blocks", placed), NotificationIcon::Success)->show();
+        if (placedObjs->count() > 0) {
+            auto undo = UndoObject::createWithArray(placedObjs, UndoCommand::Paste);
+            m_editorLayer->addToUndoList(undo, false);
+        }
+
+        Notification::create(
+            fmt::format("Filled {} blocks", placedObjs->count()),
+            NotificationIcon::Success
+        )->show();
     }
 };
