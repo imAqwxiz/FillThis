@@ -4,24 +4,22 @@
 using namespace geode::prelude;
 
 class $modify(FillUI, EditorUI) {
-    bool init(LevelEditorLayer* layer) {
-        if (!EditorUI::init(layer)) return false;
+    void createMoveMenu() {
+        EditorUI::createMoveMenu();
 
-        auto sprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
-        sprite->setScale(0.7f);
-        auto btn = CCMenuItemSpriteExtra::create(
-            sprite, this, menu_selector(FillUI::onFill)
+        auto btn = this->getSpriteButton(
+            "GJ_plusBtn_001.png",
+            menu_selector(FillUI::onFill),
+            nullptr,
+            0.9f
         );
         btn->setID("fill-button"_spr);
 
-        auto menu = CCMenu::create();
-        menu->addChild(btn);
-        auto win = CCDirector::get()->getWinSize();
-        menu->setPosition({ win.width - 30.f, win.height / 2.f });
-        menu->setID("fill-menu"_spr);
-        this->addChild(menu);
+        m_editButtonBar->m_buttonArray->addObject(btn);
 
-        return true;
+        auto rows = GameManager::get()->getIntGameVariable("0049");
+        auto cols = GameManager::get()->getIntGameVariable("0050");
+        m_editButtonBar->reloadItems(rows, cols);
     }
 
     void onFill(CCObject*) {
@@ -59,7 +57,6 @@ class $modify(FillUI, EditorUI) {
         for (int i = 0; i < cols; i++) {
             for (int j = 0; j < rows; j++) {
                 CCPoint pos = { minX + i * 30.f, minY + j * 30.f };
-                // skip the two corners, they already exist
                 if (pos.equals(pa) || pos.equals(pb)) continue;
                 auto obj = m_editorLayer->createObject(id, pos, false);
                 if (obj) {
