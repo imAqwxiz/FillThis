@@ -1,100 +1,74 @@
-/**
- * Include the Geode headers.
- */
 #include <Geode/Geode.hpp>
+#include <Geode/modify/EditorUI.hpp>
 
-/**
- * Brings cocos2d and all Geode namespaces to the current scope.
- */
 using namespace geode::prelude;
 
-/**
- * `$modify` lets you extend and modify GD's classes.
- * To hook a function in Geode, simply $modify the class
- * and write a new function definition with the signature of
- * the function you want to hook.
- *
- * Here we use the overloaded `$modify` macro to set our own class name,
- * so that we can use it for button callbacks.
- *
- * Notice the header being included, you *must* include the header for
- * the class you are modifying, or you will get a compile error.
- *
- * Another way you could do this is like this:
- *
- * struct MyMenuLayer : Modify<MyMenuLayer, MenuLayer> {};
- */
-#include <Geode/modify/MenuLayer.hpp>
-class $modify(MyMenuLayer, MenuLayer) {
-	/**
-	 * Typically classes in GD are initialized using the `init` function, (though not always!),
-	 * so here we use it to add our own button to the bottom menu.
-	 *
-	 * Note that for all hooks, your signature has to *match exactly*,
-	 * `void init()` would not place a hook!
-	*/
-	bool init() {
-		/**
-		 * We call the original init function so that the
-		 * original class is properly initialized.
-		 */
-		if (!MenuLayer::init()) {
-			return false;
-		}
+class $modify(FillUI, EditorUI) {
+    bool init(LevelEditorLayer* layer) {
+        if (!EditorUI::init(layer)) return false;
 
-		/**
-		 * You can use methods from the `geode::log` namespace to log messages to the console,
-		 * being useful for debugging and such. See this page for more info about logging:
-		 * https://docs.geode-sdk.org/tutorials/logging
-		*/
-		log::debug("Hello from my MenuLayer::init hook! This layer has {} children.", this->getChildrenCount());
+        auto sprite = CCSprite::createWithSpriteFrameName("GJ_plusBtn_001.png");
+        sprite->setScale(0.7f);
+        auto btn = CCMenuItemSpriteExtra::create(
+            sprite, this, menu_selector(FillUI::onFill)
+        );
+        btn->setID("fill-button"_spr);
 
-		/**
-		 * See this page for more info about buttons
-		 * https://docs.geode-sdk.org/tutorials/buttons
-		*/
-		auto myButton = CCMenuItemSpriteExtra::create(
-			CCSprite::createWithSpriteFrameName("GJ_likeBtn_001.png"),
-			this,
-			/**
-			 * Here we use the name we set earlier for our modify class.
-			*/
-			menu_selector(MyMenuLayer::onMyButton)
-		);
+        auto menu = CCMenu::create();
+        menu->addChild(btn);
+        auto win = CCDirector::get()->getWinSize();
+        menu->setPosition({ win.width - 30.f, win.height / 2.f });
+        menu->setID("fill-menu"_spr);
+        this->addChild(menu);
 
-		/**
-		 * Here we access the `bottom-menu` node by its ID, and add our button to it.
-		 * Node IDs are a Geode feature, see this page for more info about it:
-		 * https://docs.geode-sdk.org/tutorials/nodetree
-		*/
-		auto menu = this->getChildByID("bottom-menu");
-		menu->addChild(myButton);
+        return true;
+    }
 
-		/**
-		 * The `_spr` string literal operator just prefixes the string with
-		 * your mod id followed by a slash. This is good practice for setting your own node ids.
-		*/
-		myButton->setID("my-button"_spr);
+    void onFill(CCObject*) {
+        auto selected = this->getSelectedObjects();
+        if (!selected || selected->count() != 2) {
+            Notification::create("Select exactly 2 corner blocks", NotificationIcon::Warning)->show();
+            return;
+        }
 
-		/**
-		 * We update the layout of the menu to ensure that our button is properly placed.
-		 * This is yet another Geode feature, see this page for more info about it:
-		 * https://docs.geode-sdk.org/tutorials/layouts
-		*/
-		menu->updateLayout();
+        auto a = static_cast<GameObject*>(selected->objectAtIndex(0));
+        auto b = static_cast<GameObject*>(selected->objectAtIndex(1));
 
-		/**
-		 * We return `true` to indicate that the class was properly initialized.
-		 */
-		return true;
-	}
+        if (a->m_objectID != b->m_objectID) {
+            Notification::create("Corners must be the same block", NotificationIcon::Warning)->show();
+            return;
+        }
 
-	/**
-	 * This is the callback function for the button we created earlier.
-	 * The signature for button callbacks must always be the same,
-	 * return type `void` and taking a `CCObject*`.
-	*/
-	void onMyButton(CCObject*) {
-		FLAlertLayer::create("Geode", "Hello from my custom mod!", "OK")->show();
-	}
+        int id = a->m_objectID;
+        auto pa = a->getPosition();
+        auto pb = b->getPosition();
+
+        float minX = std::min(pa.x, pb.x);
+        float maxX = std::max(pa.x, pb.x);
+        float minY = std::min(pa.y, pb.y);
+        float maxY = std::max(pa.y, pb.y);
+
+        int cols = static_cast<int>((maxX - minX) / 30.f + 0.5f) + 1;
+        int rows = static_cast<int>((maxY - minY) / 30.f + 0.5f) + 1;
+        if (cols * rows > 5000) {
+            Notification::create("Area too big (max 5000 blocks)", NotificationIcon::Error)->show();
+            return;
+        }
+
+        int placed = 0;
+        for (int i = 0; i < cols; i++) {
+            for (int j = 0; j < rows; j++) {
+                CCPoint pos = { minX + i * 30.f, minY + j * 30.f };
+                // skip the two corners, they already exist
+                if (pos.equals(pa) || pos.equals(pb)) continue;
+                auto obj = m_editorLayer->createObject(id, pos, false);
+                if (obj) {
+                    obj->setRotation(a->getRotation());
+                    placed++;
+                }
+            }
+        }
+
+        Notification::create(fmt::format("Filled {} blocks", placed), NotificationIcon::Success)->show();
+    }
 };
