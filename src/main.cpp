@@ -5,23 +5,45 @@ using namespace geode::prelude;
 
 static constexpr bool CREATE_FLAG = true;
 
+static const char* MODE_NAMES[] = {
+    "Solid", "Hollow", "Checkerboard", "Hollow checkerboard"
+};
+
 class $modify(FillUI, EditorUI) {
     void createMoveMenu() {
         EditorUI::createMoveMenu();
 
-        auto btn = this->getSpriteButton(
+        auto fillBtn = this->getSpriteButton(
             "GJ_plusBtn_001.png",
             menu_selector(FillUI::onFill),
             nullptr,
             0.9f
         );
-        btn->setID("fill-button"_spr);
+        fillBtn->setID("fill-button"_spr);
 
-        m_editButtonBar->m_buttonArray->addObject(btn);
+        auto modeBtn = this->getSpriteButton(
+            "GJ_optionsBtn_001.png",
+            menu_selector(FillUI::onMode),
+            nullptr,
+            0.9f
+        );
+        modeBtn->setID("fill-mode-button"_spr);
+
+        m_editButtonBar->m_buttonArray->addObject(fillBtn);
+        m_editButtonBar->m_buttonArray->addObject(modeBtn);
 
         auto rows = GameManager::get()->getIntGameVariable("0049");
         auto cols = GameManager::get()->getIntGameVariable("0050");
         m_editButtonBar->reloadItems(rows, cols);
+    }
+
+    void onMode(CCObject*) {
+        int mode = (Mod::get()->getSavedValue<int>("fill-mode", 0) + 1) % 4;
+        Mod::get()->setSavedValue<int>("fill-mode", mode);
+        Notification::create(
+            fmt::format("Fill mode: {}", MODE_NAMES[mode]),
+            NotificationIcon::Info
+        )->show();
     }
 
     void onFill(CCObject*) {
@@ -39,8 +61,9 @@ class $modify(FillUI, EditorUI) {
             return;
         }
 
-        bool hollow = Mod::get()->getSettingValue<bool>("hollow");
-        bool checker = Mod::get()->getSettingValue<bool>("checkerboard");
+        int mode = Mod::get()->getSavedValue<int>("fill-mode", 0);
+        bool hollow = (mode & 1) != 0;
+        bool checker = (mode & 2) != 0;
         float step = static_cast<float>(Mod::get()->getSettingValue<double>("step"));
         if (step < 1.f) step = 30.f;
 
@@ -88,7 +111,7 @@ class $modify(FillUI, EditorUI) {
         }
 
         Notification::create(
-            fmt::format("Filled {} blocks", placedObjs->count()),
+            fmt::format("Filled {} blocks ({})", placedObjs->count(), MODE_NAMES[mode]),
             NotificationIcon::Success
         )->show();
     }
